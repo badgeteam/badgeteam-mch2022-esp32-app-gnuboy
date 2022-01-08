@@ -74,7 +74,7 @@ void SaveSram();
 
 
 char* get_rom_name_settings() {
-    return "lsdj.gb";
+    return "zelda.gbc";
 }
 
 void button_handler(uint8_t pin, bool value) {
@@ -155,7 +155,7 @@ void restart() {
 
 #define AVERAGE(a, b) ( ((((a) ^ (b)) & 0xf7deU) >> 1) + ((a) & (b)) )
 
-#define LINE_BUFFERS (7)
+#define LINE_BUFFERS (4)
 #define LINE_COUNT   (19)
 #define LINE_COUNT_UNSCALED   (4)
 
@@ -701,6 +701,12 @@ void app_main(void) {
     
     size_t rom_length;
     uint8_t* rom = load_file_to_ram(rom_fd, &rom_length);
+    
+    if (rom == NULL) {
+        ESP_LOGE(TAG, "Failed to load ROM file");
+        restart();
+    }
+    
     fclose(rom_fd);
     
     loader_init(rom);
