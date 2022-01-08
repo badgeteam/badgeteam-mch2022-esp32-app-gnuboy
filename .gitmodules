@@ -1,0 +1,15 @@
+[submodule "gnuboy/components/esp32-component-sdcard"]
+	path = gnuboy/components/sdcard
+	url = git@github.com:Nicolai-Electronics/esp32-component-sdcard.git
+[submodule "gnuboy/components/spi-ili9341"]
+	path = gnuboy/components/spi-ili9341
+	url = git@github.com:Nicolai-Electronics/esp32-component-spi-ili9341.git
+[submodule "gnuboy/components/bus-i2c"]
+	path = gnuboy/components/bus-i2c
+	url = git@github.com:Nicolai-Electronics/esp32-component-bus-i2c.git
+[submodule "esp-idf"]
+	path = esp-idf
+	url = git@github.com:espressif/esp-idf.git
+[submodule "gnuboy/components/i2c-pca9555"]
+	path = gnuboy/components/i2c-pca9555
+	url = git@github.com:Nicolai-Electronics/esp32-component-i2c-pca9555.git
