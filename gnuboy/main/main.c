@@ -10,6 +10,7 @@
 #include <sdkconfig.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <freertos/queue.h>
 #include <esp_system.h>
 #include <esp_spi_flash.h>
 #include <esp_err.h>
@@ -74,77 +75,7 @@ void SaveSram();
 
 
 char* get_rom_name_settings() {
-    return "zelda.gbc";
-}
-
-void button_handler(uint8_t pin, bool value) {
-    switch(pin) {
-        case PCA9555_PIN_BTN_START:
-            pad_set(PAD_START, value);
-            break;
-        case PCA9555_PIN_BTN_SELECT:
-            pad_set(PAD_SELECT, value);
-            break;
-        case PCA9555_PIN_BTN_MENU:
-            if (value) LoadSram();
-            break;
-        case PCA9555_PIN_BTN_HOME:
-            if (value) SaveSram();//SaveState();
-            break;
-        case PCA9555_PIN_BTN_JOY_LEFT:
-            pad_set(PAD_LEFT, value);
-            break;
-        case PCA9555_PIN_BTN_JOY_PRESS:
-            // Not used
-            break;
-        case PCA9555_PIN_BTN_JOY_DOWN:
-            pad_set(PAD_DOWN, value);
-            break;
-        case PCA9555_PIN_BTN_JOY_UP:
-            pad_set(PAD_UP, value);
-            break;
-        case PCA9555_PIN_BTN_JOY_RIGHT:
-            pad_set(PAD_RIGHT, value);
-            break;
-        case PCA9555_PIN_BTN_BACK:
-            pad_set(PAD_B, value);
-            break;
-        case PCA9555_PIN_BTN_ACCEPT:
-            pad_set(PAD_A, value);
-            break;
-        default:
-            // Unknown button, ignored
-            break;
-    }
-}
-
-void button_init() {
-    PCA9555* pca9555 = get_pca9555();
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_START, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_SELECT, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_MENU, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_HOME, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_JOY_LEFT, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_JOY_PRESS, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_JOY_DOWN, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_JOY_UP, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_JOY_RIGHT, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_BACK, true);
-    pca9555_set_gpio_polarity(pca9555, PCA9555_PIN_BTN_ACCEPT, true);
-    
-    pca9555->pin_state = 0; // Reset all pin states so that the interrupt function doesn't trigger all the handlers because we inverted the polarity :D
-    
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_START, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_SELECT, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_MENU, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_HOME, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_JOY_LEFT, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_JOY_PRESS, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_JOY_DOWN, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_JOY_UP, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_JOY_RIGHT, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_BACK, button_handler);
-    pca9555_set_interrupt_handler(pca9555, PCA9555_PIN_BTN_ACCEPT, button_handler);
+    return "zelda.gb";
 }
 
 void restart() {
@@ -611,6 +542,8 @@ uint8_t* load_file_to_ram(FILE* fd, size_t* fsize) {
 void app_main(void) {
     esp_err_t res;
     
+    RP2040* rp2040 = get_rp2040();
+    
     displayBuffer[0] = heap_caps_malloc(160 * 144 * 2, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
     displayBuffer[1] = heap_caps_malloc(160 * 144 * 2, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
     framebuffer = displayBuffer[0];
@@ -643,7 +576,8 @@ void app_main(void) {
         memset(line[x], 0, lineSize);
     }
     
-    res = hardware_init();
+    bool lcdReady = false;
+    res = board_init(&lcdReady);
     if (res != ESP_OK) {
         printf("Failed to initialize hardware!\n");
         restart();
@@ -665,9 +599,7 @@ void app_main(void) {
         ESP_LOGE(TAG, "Failed to write framebuffer to LCD");
         restart();
     }*/
-    
-    button_init();
-    
+
     res = mount_sd(SD_CMD, SD_CLK, SD_D0, SD_PWR, SD_BASE_PATH, false, 5);
     if (res != ESP_OK) {
         ESP_LOGE(TAG, "Failed to mount SD card, halted.");
@@ -776,7 +708,7 @@ void app_main(void) {
     uint stopTime;
     uint totalElapsedTime = 0;
     uint actualFrameCount = 0;
-    
+        
     while (true) {
         startTime = xthal_get_ccount();
         run_to_vblank();
@@ -801,5 +733,49 @@ void app_main(void) {
           actualFrameCount = 0;
           totalElapsedTime = 0;
         }
+        
+        rp2040_input_message_t buttonMessage = {0};
+        BaseType_t queueResult;
+        do {
+            queueResult = xQueueReceive(rp2040->queue, &buttonMessage, 0);
+            if (queueResult == pdTRUE) {
+                uint8_t button = buttonMessage.input;
+                bool value = buttonMessage.state;
+                switch(button) {
+                    case RP2040_INPUT_JOYSTICK_DOWN:
+                        pad_set(PAD_DOWN, value);
+                        break;
+                    case RP2040_INPUT_JOYSTICK_UP:
+                        pad_set(PAD_UP, value);
+                        break;
+                    case RP2040_INPUT_JOYSTICK_LEFT:
+                        pad_set(PAD_LEFT, value);
+                        break;
+                    case RP2040_INPUT_JOYSTICK_RIGHT:
+                        pad_set(PAD_RIGHT, value);
+                        break;
+                    case RP2040_INPUT_BUTTON_ACCEPT:
+                        pad_set(PAD_A, value);
+                        break;
+                    case RP2040_INPUT_BUTTON_BACK:
+                        pad_set(PAD_B, value);
+                        break;
+                    case RP2040_INPUT_BUTTON_START:
+                        pad_set(PAD_START, value);
+                        break;
+                    case RP2040_INPUT_BUTTON_SELECT:
+                        pad_set(PAD_SELECT, value);
+                        break;
+                    case RP2040_INPUT_BUTTON_HOME:
+                        if (value) {
+                            SaveSram();
+                            restart();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+        } while (queueResult == pdTRUE);
     }
 }
