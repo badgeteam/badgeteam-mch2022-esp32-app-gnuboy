@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Nicolai Electronics
+ * Copyright (c) 2022 Renze Nicolai
  * Copyright (c) 2019 Fuji Pebri
  *
  * SPDX-License-Identifier: MIT
@@ -15,6 +15,8 @@
 #include <esp_spi_flash.h>
 #include <esp_err.h>
 #include <esp_log.h>
+#include "soc/rtc.h"
+#include "soc/rtc_cntl_reg.h"
 #include "hardware.h"
 
 #include <loader.h>
@@ -32,6 +34,7 @@
 
 #include <sdcard.h>
 #include "sd_fail.h"
+#include "logo.h"
 
 static const char *TAG = "main";
 extern void cpu_reset();
@@ -63,8 +66,6 @@ uint elapsedTime = 0;
 QueueHandle_t vidQueue;
 QueueHandle_t audioQueue;
 
-bool calibrate = true;
-bool display_bno_value = true;
 ILI9341* ili9341 = NULL;
 uint16_t* framebuffer = NULL;
 
@@ -79,7 +80,8 @@ char* get_rom_name_settings() {
 }
 
 void restart() {
-    printf("Restarting...\n");
+    printf("Returning to launcher...\n");
+    REG_WRITE(RTC_CNTL_STORE0_REG, 0);
     fflush(stdout);
     esp_restart();
 }
@@ -599,6 +601,8 @@ void app_main(void) {
         ESP_LOGE(TAG, "Failed to write framebuffer to LCD");
         restart();
     }*/
+    
+    ili9341_write(ili9341, logo);
 
     res = mount_sd(SD_CMD, SD_CLK, SD_D0, SD_PWR, SD_BASE_PATH, false, 5);
     if (res != ESP_OK) {
